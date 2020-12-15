@@ -12,7 +12,7 @@
             "email": "aiernet@126.com"
         }
     ],
-    "minimum-stability": "dev",
+    "minimum-stability": "beta",
     "require": {
     }
 }
