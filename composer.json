@@ -2,7 +2,7 @@
     "name": "royfee/tracking",
     "description": "Logistics track tracking",
     "type": "library",
-    "require-dev": {
+    "require": {
         "php": ">=5.6.0"
     },
     "authors": [
