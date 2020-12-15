@@ -1,0 +1,16 @@
+{
+    "name": "royfee/tracking",
+    "description": "Logistics track tracking",
+    "type": "library",
+    "require-dev": {
+        "php": ">=5.6.0"
+    },
+    "authors": [
+        {
+            "name": "royee",
+            "email": "aiernet@126.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
