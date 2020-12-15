@@ -2,7 +2,8 @@
     "name": "royfee/tracking",
     "description": "Logistics track tracking",
     "type": "library",
-    "require": {
+    "license":"MIT",
+    "require-dev": {
         "php": ">=5.6.0"
     },
     "authors": [
