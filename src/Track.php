@@ -1,6 +1,6 @@
 <?php
 
-namespace royfee/tracking;
+namespace royfee\tracking;
 
 
 //use Exception;
