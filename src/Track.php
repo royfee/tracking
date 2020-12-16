@@ -18,7 +18,7 @@ class Track
 {
 	
 	public static function track(){
-		return 'Test Composer is successfull';	
+		return 'Test Composer is successfull 呵呵';	
 	}
 
     public static function submitOrder($amount, $orderid = null, $type = null, $title = null, $notifyurl = null, $returnurl = null, $method = null)
