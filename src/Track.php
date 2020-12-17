@@ -10,7 +10,7 @@ namespace royfee\tracking;
 //use Yansongda\Pay\Pay;
 
 /**
- * 订单服务类
+ * 物流追踪类
  *
  * @package addons\epay\library
  */
