@@ -30,7 +30,7 @@ class Track extends BaseTrack
 		@para[
 			'original': boolean 原生返回，返回格式如return，默认进行格式处理
 			'default_list':array 默认加进去的物流轨迹，加入自定义物流轨迹，默认返回为真
-			'sort':轨迹排序方式 A 升序  D 降序
+			'sort':轨迹排序方式 A 升序  D 降序 默认 D 降序
 			'isgroup':物流轨迹分组 默认 false
 		]
 
