@@ -2,384 +2,129 @@
 
 namespace royfee\tracking;
 
-
-//use Exception;
-//use think\Log;
-//use think\Response;
-//use think\Session;
-//use Yansongda\Pay\Pay;
-
+use royfee\tracking\exception\InvalidArgumentException;
+use royfee\tracking\exception\InvalidConfigException;
+use royfee\tracking\support\Config;
+use royfee\tracking\common\BaseTrack;
 /**
  * 物流追踪类
  *
  * @package addons\epay\library
  */
-class Track
+class Track extends BaseTrack
 {
-	
-	public static function track(){
-		return 'Test Composer is successfull 呵呵';	
+    private $driver;
+    private $config;
+
+	public function __construct(){
+		//放在extra/tracking.php
+		$this->config = config('tracking');
+
+		if(empty($this->config)){
+			throw new InvalidConfigException('Configuration file does not exist');
+		}
 	}
 
-    public static function submitOrder($amount, $orderid = null, $type = null, $title = null, $notifyurl = null, $returnurl = null, $method = null)
+	/**
+		追踪物流轨迹信息
+		@para[
+			'original': boolean 原生返回，返回格式如return，默认进行格式处理
+			'default_list':array 默认加进去的物流轨迹，加入自定义物流轨迹，默认返回为真
+			'sort':轨迹排序方式 A 升序  D 降序
+			'isgroup':物流轨迹分组 默认 false
+		]
+
+		@return [
+			'ret'	=>	true,
+			'list'	=>	[
+				[
+					"desc" => "已完成处理，准备离开",
+					"loca" => "香港",
+					"time" => "2020-10-17 16:48:00",
+				]
+		]
+	*/
+	public function tracking($track,array $param = []){
+		if(strpos($track,'.') === false){
+			$this->driver = $this->config['default'];
+		}else{
+			$info = explode('.',$track);
+			$this->driver = $info[0];
+			$track = $info[1];
+		}
+
+		if(!isset($this->config[$this->driver])){
+			throw new InvalidArgumentException("Configuration [$this->driver] is empty");
+		}
+
+		$gateway = $this->createGateway($this->driver);
+		$result = $gateway->track($track);
+
+		if(isset($param['original']) && $param['original']){
+			return $result;
+		}
+
+		$return =  ['ret'=>$result['ret']];
+		$trackList = [];
+		if(isset($param['default_list']) && $param['default_list']){
+			$trackList = array_merge($param['default_list'],$trackList);
+
+			//如果设置了默认物流轨迹，则总是返回true
+			$return['ret'] = true;
+
+			if($result['ret'] === false){
+				$trackList = array_merge($trackList,[
+					[
+						'desc'	=>	$result['msg'],
+						'loca'	=>	'',
+						'time'	=>	date('Y-m-d H:i:s'),
+					]
+				]);
+			}
+		}
+
+		//轨迹排序方式
+		$sort = isset($param['sort'])&&$param['sort']=='A'?'A':'D';
+		if($return['ret']){
+			$return['list'] = $trackList;
+
+			if($result['ret']){
+				$return['list'] = array_merge($return['list'],$result['list']);
+			}
+
+			//排序
+			$sortFlag = array_map(function($arr){
+				return $arr['time'];
+			},$return['list']);
+
+			array_multisort($sortFlag,$sort=='A'?SORT_ASC:SORT_DESC,$return['list']);
+
+			//格式化
+			$status = $this->getStatus($return['list'],$sort);
+			$return['status'] = $status['status'];
+			$return['recent'] = $status['recent'];
+
+			if(isset($param['isgroup']) && $param['isgroup']){
+				$return['list'] = $this->nodeGroup($return['list']);
+			}
+		}else{
+			$return['msg'] = $result['msg'];
+		}
+		return $return;
+	}
+
+    protected function createGateway($gateway)
     {
-        if (!is_array($amount)) {
-            $params = [
-                'amount'    => $amount,
-                'orderid'   => $orderid,
-                'type'      => $type,
-                'title'     => $title,
-                'notifyurl' => $notifyurl,
-                'returnurl' => $returnurl,
-                'method'    => $method,
-            ];
-        } else {
-            $params = $amount;
+        if (!file_exists(__DIR__ . '/gateway/' . ucfirst($gateway) . '/' . ucfirst($gateway) . 'Gateway.php')) {
+            throw new InvalidArgumentException("Gateway [$gateway] is not supported.");
         }
 
-        $type = isset($params['type']) && in_array($params['type'], ['alipay', 'wechat','valoot','wantu']) ? $params['type'] : 'wechat';
-
-        $method = isset($params['method']) ? $params['method'] : 'web';
-        $orderid = isset($params['orderid']) ? $params['orderid'] : date("YmdHis") . mt_rand(100000, 999999);
-        $amount = isset($params['amount']) ? $params['amount'] : 1;
-        $title = isset($params['title']) ? $params['title'] : "支付";
-        $auth_code = isset($params['auth_code']) ? $params['auth_code'] : '';
-        $openid = isset($params['openid']) ? $params['openid'] : '';
-
-        $request = request();
-
-        $notifyurl = isset($params['notifyurl']) ? $params['notifyurl'] : $request->root(true) . '/addons/epay/index/' . $type . 'notify';
-        $returnurl = isset($params['returnurl']) ? $params['returnurl'] : $request->root(true) . '/addons/epay/index/' . $type . 'return/out_trade_no/' . $orderid;
-        $html = '';
-
- 
-        $config = Service::getConfig($type);
-
-		//$fp=fopen('sql.txt','a');fwrite($fp,date('Y-m-d H:i:s').':'.$type.'==>'.$method.'==>'.$openid."\r\n");
-
-        $config[$type]['notify_url'] = $notifyurl;
-        $config[$type]['return_url'] = $returnurl;
-
-        if ($type == 'alipay') {
-            //创建支付对象
-            $pay = new Pay($config);
-            //支付宝支付,请根据你的需求,仅选择你所需要的即可
-            $params = [
-                'out_trade_no' => $orderid,//你的订单号
-                'total_amount' => $amount,//单位元
-                'subject'      => $title,
-            ];
-
-            //如果是移动端自动切换为wap
-            $method = $request->isMobile() ? 'wap' : $method;
-
-            switch ($method) {
-                case 'web':
-                    //电脑支付,跳转
-                    $html = $pay->driver($type)->gateway('web')->pay($params);
-                    Response::create($html)->send();
-                    break;
-                case 'wap':
-                    //手机网页支付,跳转
-                    $html = $pay->driver($type)->gateway('wap')->pay($params);
-                    Response::create($html)->send();
-                    break;
-                case 'app':
-                    //APP支付,直接返回字符串
-                    $html = $pay->driver($type)->gateway('app')->pay($params);
-                    break;
-                case 'scan':
-                    //扫码支付,直接返回字符串
-                    $html = $pay->driver($type)->gateway('scan')->pay($params);
-                    break;
-                case 'pos':
-                    //刷卡支付,直接返回字符串
-                    //刷卡支付必须要有auth_code
-                    $params['auth_code'] = $auth_code;
-                    $html = $pay->driver($type)->gateway('pos')->pay($params);
-                    break;
-                default:
-                    //其它支付类型请参考：https://docs.pay.yansongda.cn/alipay
-            }
-		}else if($type == 'valoot'){
-            //如果是PC支付,判断当前环境,进行跳转
-            if ($method == 'web') {
-                if ((strpos($request->server('HTTP_USER_AGENT'), 'MicroMessenger') !== false)) {
-                    Session::delete("openid");
-                    Session::set("valootorderdata", $params);
-                    $url = addon_url('epay/api/valoot', [], true, true);
-                    header("location:{$url}");
-                    exit;
-                } elseif ($request->isMobile()) {
-                    $method = 'wap';
-                }
-            }
-
-            //创建支付对象
-            $pay = new Pay($config);
-            $params = [
-				'currency'		=> 'HKD',
-				'amount'		=> $amount,
-				'product_name'	=> $title,
-				'service'		=> 'wechat',
-				'wallet'		=> 'hk',
-				'callback_url'	=>	$notifyurl,
-				'redirect_url'	=>	$returnurl,
-				'extra'			=> array(
-					'order_number' => array($orderid),
-				)
-            ];
-
-            switch ($method) {
-                case 'web':
-                    //扫码支付,直接返回字符串
-                    $html = $pay->driver($type)->gateway('web')->pay($params);
-                    Response::create($html)->send();
-					break;
-                case 'mp':
-                    //公众号支付
-                    //公众号支付必须有openid
-                    $params['openid'] = $openid;
-                    $html = $pay->driver($type)->gateway('mp')->pay($params);
-
-					break;
-                default:
-            }
-		//玩途支付
-		}else if($type == 'wantu'){
-            //如果是PC支付,判断当前环境,进行跳转
-            if ($method == 'web') {
-                if ((strpos($request->server('HTTP_USER_AGENT'), 'MicroMessenger') !== false)) {
-                    Session::delete("openid");
-                    Session::set("wantuorderdata", $params);
-                    $url = addon_url('epay/api/wantu', [], true, true);
-                    header("location:{$url}");
-                    exit;
-                } elseif ($request->isMobile()) {
-					exit('in lib.service');
-                    $method = 'wap';
-                }
-            }
-
- 
-			//创建支付对象
-            $pay = new Pay($config);
-            $params = [
-				'subject'		=>	$title,
-				'product_id'	=>	$orderid,
-				'notify_url'	=>	$notifyurl,
-				'fee_type'		=>	'HKD',
-				'store_account'	=>	$config[$type]['store_account'],
-				'total_fee'		=>	$amount * 100,//默认为分
-				'out_trade_no'	=>	$orderid
-            ];
-
-            switch ($method) {
-                case 'web':
-                    //扫码支付,直接返回字符串
-                    $html = $pay->driver($type)->gateway('web')->pay($params);
-
-                    Response::create($html)->send();
-					break;
-                case 'mp':
-                    //公众号支付
-                    //公众号支付必须有openid
-                    $params['openid'] = $openid;
-                    $html = $pay->driver($type)->gateway('mp')->pay($params);
-					break;
-                default:
-            }
-        } else {
-            //如果是PC支付,判断当前环境,进行跳转
-            if ($method == 'web') {
-                if ((strpos($request->server('HTTP_USER_AGENT'), 'MicroMessenger') !== false)) {
-                    Session::delete("openid");
-                    Session::set("wechatorderdata", $params);
-                    $url = addon_url('epay/api/wechat', [], true, true);
-                    header("location:{$url}");
-                    exit;
-                } elseif ($request->isMobile()) {
-                    $method = 'wap';
-                }
-            }
-
-            //创建支付对象
-            $pay = new Pay($config);
-
-            $params = [
-                'out_trade_no' => $orderid,//你的订单号
-                'body'         => $title,
-                'total_fee'    => $amount * 100, //单位分
-            ];
-
-            switch ($method) {
-                case 'web':
-                    //电脑支付,跳转到自定义展示页面(FastAdmin独有)
-                    $html = $pay->driver($type)->gateway('web')->pay($params);
-                    Response::create($html)->send();
-                    break;
-                case 'mp':
-                    //公众号支付
-                    //公众号支付必须有openid
-                    $params['openid'] = $openid;
-                    $html = $pay->driver($type)->gateway('mp')->pay($params);
-                    break;
-                case 'wap':
-                    //手机网页支付,跳转
-                    $params['spbill_create_ip'] = $request->ip(0, false);
-                    $html = $pay->driver($type)->gateway('wap')->pay($params);
-                    header("location:{$html}");
-                    exit;
-                    break;
-                case 'app':
-                    //APP支付,直接返回字符串
-                    $html = $pay->driver($type)->gateway('app')->pay($params);
-                    break;
-                case 'scan':
-                    //扫码支付,直接返回字符串
-                    $html = $pay->driver($type)->gateway('scan')->pay($params);
-                    break;
-                case 'pos':
-                    //刷卡支付,直接返回字符串
-                    //刷卡支付必须要有auth_code
-                    $params['auth_code'] = $auth_code;
-                    $html = $pay->driver($type)->gateway('pos')->pay($params);
-                    break;
-                case 'miniapp':
-                    //小程序支付,直接返回字符串
-                    //小程序支付必须要有openid
-                    $params['openid'] = $openid;
-                    $html = $pay->driver($type)->gateway('miniapp')->pay($params);
-                    break;
-                default:
-            }
-        }
-
-        //返回字符串
-        $html = is_array($html) ? json_encode($html) : $html;
-        return $html;
+        $gateway = __NAMESPACE__ . '\\gateway\\' . ucfirst($gateway) . '\\' . ucfirst($gateway) . 'Gateway';
+        return $this->build($gateway);
     }
 
-    /**
-     * 创建支付对象
-     * @param string $type   支付类型
-     * @param array  $config 配置信息
-     * @return bool
-     */
-    public static function createPay($type, $config = [])
+    protected function build($gateway)
     {
-        $type = strtolower($type);
-        if (!in_array($type, ['wechat', 'alipay'])) {
-            return false;
-        }
-        $config = self::getConfig($type);
-        $config = array_merge($config[$type], $config);
-        $pay = new Pay($config);
-        return $pay;
-    }
-
-    /**
-     * 验证回调是否成功
-     * @param string $type   支付类型
-     * @param array  $config 配置信息
-     * @return bool|Pay
-     */
-    public static function checkNotify($type, $config = [])
-    {
-        $type = strtolower($type);
-
-        if (!in_array($type, ['wechat', 'alipay','valoot','wantu'])) {
-            return false;
-        }
-
-        try {
-            $pay = new Pay(self::getConfig($type));
-
-            $data = in_array($type,array('wechat','valoot')) ? file_get_contents("php://input") : request()->post('', null, 'trim');
-             $data = $pay->driver($type)->gateway()->verify($data);
- 			if ($type == 'alipay'){
-                if (in_array($data['trade_status'], ['TRADE_SUCCESS', 'TRADE_FINISHED'])) {
-                    return $pay;
-                }
-			}else if($type == 'valoot'){
-                if (in_array($data['status'], ['paid'])) {
-                    return $pay;
-                }
-			}else if($type == 'wantu'){
-                if (in_array($data['trade_status'], ['SUCCESS'])) {
-                    return $pay;
-                }				
-            } else {
-                return $pay;
-            }
-        } catch (Exception $e) {
-            return false;
-        }
-
-        return false;
-    }
-
-    /**
-     * 验证返回是否成功
-     * @param string $type   支付类型
-     * @param array  $config 配置信息
-     * @return bool|Pay
-     */
-    public static function checkReturn($type, $config = [])
-    {
-        $type = strtolower($type);
-        if (!in_array($type, ['wechat', 'alipay','valoot','wantu'])) {
-            return false;
-        }
-
-        //微信无需验证
-        if ($type == 'wechat' || $type == 'valoot' || $type == 'wantu'){
-            return true;
-        }
-
-        try {
-            $pay = new Pay(self::getConfig($type));
-
-            $data = in_array($type,array('wechat','valoot')) ? file_get_contents("php://input") : request()->get('', null, 'trim');
-
-            $data = $pay->driver($type)->gateway()->verify($data);
-
-            if ($data) {
-                return $pay;
-            }
-        } catch (Exception $e) {
-            return false;
-        }
-
-        return false;
-    }
-
-    /**
-     * 获取配置
-     * @param string $type 支付类型
-     * @return array|mixed
-     */
-    public static function getConfig($type = 'wechat')
-    {
-        $config = get_addon_config('epay');
-        $config = isset($config[$type]) ? $config[$type] : $config['wechat'];
-        if ($config['log']) {
-            $config['log'] = [
-                'file'  => LOG_PATH . '/epaylogs/' . $type . '-' . date("Y-m-d") . '.log',
-                'level' => 'debug'
-            ];
-        }
-        if (isset($config['cert_client']) && substr($config['cert_client'], 0, 6) == '/epay/') {
-            $config['cert_client'] = ADDON_PATH . $config['cert_client'];
-        }
-        if (isset($config['cert_key']) && substr($config['cert_key'], 0, 6) == '/epay/') {
-            $config['cert_key'] = ADDON_PATH . $config['cert_key'];
-        }
-
-        $config['notify_url'] = empty($config['notify_url']) ? addon_url('epay/api/notifyx', [], false) . '/type/' . $type : $config['notify_url'];
-        $config['notify_url'] = !preg_match("/^(http:\/\/|https:\/\/)/i", $config['notify_url']) ? request()->root(true) . $config['notify_url'] : $config['notify_url'];
-        $config['return_url'] = empty($config['return_url']) ? addon_url('epay/api/returnx', [], false) . '/type/' . $type : $config['return_url'];
-        $config['return_url'] = !preg_match("/^(http:\/\/|https:\/\/)/i", $config['return_url']) ? request()->root(true) . $config['return_url'] : $config['return_url'];
-        return [$type => $config];
+		return new $gateway($this->config[$this->driver]);
     }
 }
