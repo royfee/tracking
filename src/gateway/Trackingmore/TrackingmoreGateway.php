@@ -1,5 +1,4 @@
 <?php
-
  namespace royfee\tracking\gateway\trackingmore;
 
  use royfee\tracking\interfaces\TrackInterface;
@@ -10,27 +9,24 @@
 
 	public function __construct($config = []){
 		$this->config = $config;
-
-		//ÊµÀı»¯tmÀà
 		$this->tmore = new TMore($this->config);
 	}
 
  	public function track($number){
+		 //è·å–è¿è¾“å•†
 		$carrier = $this->getCarrier($number);
+
 		if(empty($carrier)){
-			return [
-				'ret'	=>	true,
-				'msg'	=>	'²»¿ÉÊ¶±ğµÄµ¥ºÅ'
-			];
+			return ['ret' => true,'msg'	=>	'Transporter cannot be empty'];
 		}
 
 		$result  = $this->tmore->getRealtimeTrackingResults($carrier,$number,array('lang'=>'cn'));
+
 		if($result['meta']['type']!='Success'){
 			if($result['meta']['code']==4031){
-
-				//Ã»ÓĞ¶©ÔÄµÄ»°£¬Ö±½Ó¶©ÔÄ
+				//æ²¡æœ‰åˆ™è‡ªåŠ¨è®¢é˜…
 				$this->subscribe([$track]);
-				return ['ret'=>false,'msg'=>sprintf('µ¥ºÅ£¨%s£©Ã»ÓĞ¶©ÔÄ£¡',$number)];
+				return ['ret'=>false,'msg'=>sprintf('%s No subscription',$number)];
 			}
 			return ['ret'=>false,'msg'=>$result['meta']['message']];
 		}
@@ -79,13 +75,14 @@
 	}
 
 	/**
-		»ñÈ¡µ¥ºÅ¹ì¼£
+		è·å–å¯¹åº”çš„è¿è¾“å•†ç¼–ç ï¼Œæ ¹æ®å•å·å‰ç¼€æ¥åŒºåˆ«
 	*/
 	private function getCarrier($track){
 		switch(substr($track,0,2)){
 			case 'EL':
-			case 'EK':
 				return 'hong-kong-post';
+			case 'EK':
+				return 'china-post';
 			case '55':
 				return 'sto';
 			case '77':
@@ -94,6 +91,7 @@
 			case '97':
 			case 'BH':
 			case 'BE':
+			case '11':
 				return 'china-post';
 			default:
 				return '';
@@ -102,7 +100,7 @@
 	}
 
 	/**
-		trackignmore ÌØÓĞµÄ¶©ÔÄ¹¦ÄÜ
+		trackignmore è®¢é˜…
 	*/
 	private function subscribe(array $trackArray){
 		$createArray = array();

@@ -1,11 +1,11 @@
 <?php
-
 namespace royfee\tracking;
 
 use royfee\tracking\exception\InvalidArgumentException;
 use royfee\tracking\exception\InvalidConfigException;
 use royfee\tracking\support\Config;
 use royfee\tracking\common\BaseTrack;
+
 /**
  * 物流追踪类
  *
@@ -13,16 +13,18 @@ use royfee\tracking\common\BaseTrack;
  */
 class Track extends BaseTrack
 {
-    private $driver;
-    private $config;
-
-	public function __construct(){
-		//放在extra/tracking.php
-		$this->config = config('tracking');
-
-		if(empty($this->config)){
-			throw new InvalidConfigException('Configuration file does not exist');
+	public function __construct($config = []){
+		if($config){
+			$this->config = $config;
 		}
+	}
+
+	/**
+	 * 配置文件
+	 */
+	public function config($config){
+		$this->config = $config;
+		return $this;
 	}
 
 	/**
@@ -42,36 +44,28 @@ class Track extends BaseTrack
 					"loca" => "香港",
 					"time" => "2020-10-17 16:48:00",
 				]
+			'recent' => '已签收',
+			'status' => 4,
 		]
 	*/
-	public function tracking($track,array $param = []){
-		if(strpos($track,'.') === false){
-			$this->driver = $this->config['default'];
-		}else{
-			$info = explode('.',$track);
-			$this->driver = $info[0];
-			$track = $info[1];
-		}
+	public function tracking($trackNumber,array $param = []){
+		//获取对应的运输商
+		$this->driver = array_keys($this->config)[0];
 
-		if(!isset($this->config[$this->driver])){
+		if(empty($this->config[$this->driver])){
 			throw new InvalidArgumentException("Configuration [$this->driver] is empty");
 		}
 
-		$gateway = $this->createGateway($this->driver);
-		$result = $gateway->track($track);
+		//调用对应第三方的查询轨迹
+		$result = $this->createGateway($this->driver)->track($trackNumber);
 
-		if(isset($param['original']) && $param['original']){
+		if($param['original']??false){
 			return $result;
 		}
 
-		$return =  ['ret'=>$result['ret']];
 		$trackList = [];
-		if(isset($param['default_list']) && $param['default_list']){
+		if(isset($param['default_list'])){
 			$trackList = array_merge($param['default_list'],$trackList);
-
-			//如果设置了默认物流轨迹，则总是返回true
-			$return['ret'] = true;
-
 			if($result['ret'] === false){
 				$trackList = array_merge($trackList,[
 					[
@@ -82,49 +76,43 @@ class Track extends BaseTrack
 				]);
 			}
 		}
-
-		//轨迹排序方式
-		$sort = isset($param['sort'])&&$param['sort']=='A'?'A':'D';
-		if($return['ret']){
-			$return['list'] = $trackList;
-
-			if($result['ret']){
-				$return['list'] = array_merge($return['list'],$result['list']);
-			}
-
-			//排序
-			$sortFlag = array_map(function($arr){
-				return $arr['time'];
-			},$return['list']);
-
-			array_multisort($sortFlag,$sort=='A'?SORT_ASC:SORT_DESC,$return['list']);
-
-			//格式化
-			$status = $this->getStatus($return['list'],$sort);
-			$return['status'] = $status['status'];
-			$return['recent'] = $status['recent'];
-
-			if(isset($param['isgroup']) && $param['isgroup']){
-				$return['list'] = $this->nodeGroup($return['list']);
-			}
-		}else{
-			$return['msg'] = $result['msg'];
+		
+		//合并轨迹记录
+		if($result['ret']){
+			$trackList = array_merge($result['list'],$trackList);
 		}
-		return $return;
+
+		
+		//对轨迹进行按照时间排序
+		$sort = $param['sort'] ??'asc';
+
+		$trackList = $this->sortNode($trackList,$sort);
+		
+		//状态处理
+		$state = $this->getStatus($trackList,$sort);
+
+		//是否对轨迹进行分组
+		if($param['isgroup']??false){
+			$trackList = $this->nodeGroup($trackList);
+		}
+		
+		if($trackList){
+			return [
+				'ret'	=>	true,
+				'list'	=>	$trackList,
+				'status'=>	$state['status'],
+				'recent'=>	$state['recent']
+			];
+		}
+
+		//轨迹为空的时候
+		if($result['ret']){
+			return $result;
+		}
+
+		return [
+			'ret'	=>	 false,
+			'msg'	=>	 $result['msg'],
+		];
 	}
-
-    protected function createGateway($gateway)
-    {
-        if (!file_exists(__DIR__ . '/gateway/' . ucfirst($gateway) . '/' . ucfirst($gateway) . 'Gateway.php')) {
-            throw new InvalidArgumentException("Gateway [$gateway] is not supported.");
-        }
-
-        $gateway = __NAMESPACE__ . '\\gateway\\' . ucfirst($gateway) . '\\' . ucfirst($gateway) . 'Gateway';
-        return $this->build($gateway);
-    }
-
-    protected function build($gateway)
-    {
-		return new $gateway($this->config[$this->driver]);
-    }
 }
