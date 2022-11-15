@@ -3,6 +3,7 @@ namespace royfee\tracking;
 
 use royfee\tracking\exception\InvalidArgumentException;
 use royfee\tracking\exception\InvalidConfigException;
+use royfee\tracking\exception\InvalidGatewayException;
 use royfee\tracking\support\Config;
 use royfee\tracking\common\BaseTrack;
 
@@ -11,8 +12,7 @@ use royfee\tracking\common\BaseTrack;
  *
  * @package addons\epay\library
  */
-class Track extends BaseTrack
-{
+class Track extends BaseTrack{
 	public function __construct($config = []){
 		if($config){
 			$this->config = $config;
@@ -114,5 +114,40 @@ class Track extends BaseTrack
 			'ret'	=>	 false,
 			'msg'	=>	 $result['msg'],
 		];
+	}
+
+	/**
+	 * 订阅通知
+	 * jsonBody 通知的报文
+	 * param[
+	 * 	sort	排序方式  asc|desc
+	 * ]
+	 */
+	public function notify($jsonBody,$param = []){
+		$gateway = $this->parseGateway($jsonBody);
+		if($gateway ===  false){
+			throw new InvalidGatewayException;
+		}
+
+		$result = $gateway->notify($jsonBody);
+
+		$sort = $param['sort'] ??'asc';
+
+		if($result){
+			//对轨迹进行按照时间排序
+			$result['list'] = $this->sortNode($result['list'],$sort);
+
+			//状态处理
+			$state = $this->getStatus($result['list'],$sort);
+
+			return [
+				'ret'	=>	true,
+				'list'	=>	$result['list'],
+				'status'=>	$state['status'],
+				'recent'=>	$state['recent']
+			];
+		}
+
+		return ['ret' => false,'msg' =>	$result['msg']];
 	}
 }

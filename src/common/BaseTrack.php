@@ -88,6 +88,17 @@ abstract class BaseTrack{
         return $this->build($gateway);
     }
 
+	/**
+	 * 解析轨迹通知所属gateway
+	 * @return  class|false
+	 */
+	protected function parseGateway($body){
+		if(isset($body['event']) && $body['event']=='TRACKING_UPDATED'){
+			return $this->createGateway('track17');
+		}
+		return false;
+	}
+
     protected function build($gateway){
 		return new $gateway($this->config[$this->driver]);
     }

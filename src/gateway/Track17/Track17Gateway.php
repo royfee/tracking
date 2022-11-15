@@ -93,6 +93,28 @@
 		];
 	}
 
+	public function notify($message){
+		if(!$this->verify($message)){
+			throw new \Exception('Signature error');
+		}
+
+		$list = [];
+		foreach($message['data']['track_info']['tracking']['providers'][0]['events'] as $k => $line){
+			$list[] = [
+				'desc'	=>	$line['description'],
+				'loca'	=>	$line['location'],
+				'time'	=>	date('Y-m-d H:i:s',strtotime($line['time_utc'])),
+			];
+		}
+
+		return ['ret'=>true,'list'=>$list];
+	}
+
+	private function verify($message){
+		/**暂不验证 */
+		return true;
+	}
+
 	private function subscribe($number){
 		$param = 	is_array($number) ? $number : [
 						'number' 		=> $number,
