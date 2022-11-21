@@ -4,15 +4,85 @@
  use royfee\tracking\interfaces\TrackInterface;
 
  class Track17Gateway implements TrackInterface{
-	private $host = 'https://api.17track.net/track/v1/';
+	private $host = 'https://api.17track.net/track/v2/';
 	private $config;
 
 	public function __construct($config = []){
 		$this->config = $config;		
 	}
 
+	public function track($number){
+		$result = $this->post([
+			['number' => $number]
+		]);
+
+		if(isset($result['data']['errors'])){
+			return [
+				'ret'	=> false,
+				'msg'	=> $result['data']['errors'][0]['message'],
+			];
+		}
+
+		//返回成功
+		if($result['data']['rejected']){
+			//未注册
+			if($result['data']['rejected'][0]['error']['code'] == -18019902){
+				//直接注册
+				$carrier = $this->getCarrier($number);
+				$ret = $this->subscribe([
+					'number' 		=> $number,
+					'carrier'		=> $carrier,//如果只有一个运输商就传这个参数
+					'final_carrier'	=> $carrier,//第二运输商要传这个参数
+					'auto_detection'=> $carrier?false:true,
+				]);
+
+				if(!$ret['ret'])
+					return $ret;
+			}
+			return [
+				'ret'	=> false,
+				'msg'	=> $result['data']['rejected'][0]['error']['message'],
+			];
+		}
+
+		if($result['data']['accepted']){
+			$trackList = [];
+
+			$trackInfo = $result['data']['accepted'][0]['track_info'];
+			//获取轨迹列表
+			$trackNode = $trackInfo['tracking']['providers'][0]['events'];
+
+			//处理轨迹节点
+			foreach($trackNode as $k => $node){
+				$trackList[] = [
+					'desc'	=>	$node['description'],
+					'loca'	=>	$node['location'],
+					'time'	=>	date('Y-m-d H:i:s',strtotime($node['time_utc'])),
+				];
+			}
+
+			$latest = $this->status($trackInfo['latest_status']['status'],$trackInfo['latest_status']['sub_status']);
+
+			return [
+				'ret'	=>	true,
+				'list'	=>	$trackList,
+				'latest'=>	[
+					'status'	=>	$latest['status'],
+					'status_sub'	=>	$latest['sub_status'],
+					'desc'	=>	$trackInfo['latest_event']['location'].'->'.$trackInfo['latest_event']['description'],
+					'time'	=>	date('Y-m-d H:i:s',strtotime($trackInfo['latest_event']['time_utc'])),
+				]
+			];	
+		}
+
+		return [
+			'ret'	=>	false,
+			'msg'	=>	'Track error'
+		];
+	}
+
+	/*V1版本的
  	public function track($number){
-		//$this->changecarrier($number);exit;
 		$result = $this->post([
 			['number' => $number]
 		]);
@@ -92,6 +162,7 @@
 			'msg'	=>	'Track error'
 		];
 	}
+	*/
 
 	public function notify($message){
 		if(!$this->verify($message)){
@@ -108,6 +179,59 @@
 		}
 
 		return ['ret'=>true,'list'=>$list];
+	}
+
+	private function status($status,$sub_status=''){
+		$return = ['status'=>0,'sub_status'=>0];
+		$track17 = [
+			'NotFound'              =>  10,
+			'InfoReceived'          =>  20,
+			'InTransit'             =>  30,
+			'Expired'               =>  40,
+			'AvailableForPickup'    =>  50,
+			'OutForDelivery'        =>  60,
+			'DeliveryFailure'       =>  70,
+			'Delivered'             =>  80,
+			'Exception'             =>  90,
+		];
+
+		$track17_sub = [
+			'NotFound_Other'					=>	'1001',//	运输商没有返回信息。
+			'NotFound_InvalidCode'				=>	'1002',//	物流单号无效，无法进行查询。
+			'InfoReceived'						=>	'2001',//	收到信息
+			'InTransit_PickedUp'				=>	'3001',//	已揽收。
+			'InTransit_Other'					=>	'3002',//	其它情况。
+			'InTransit_Departure'				=>	'3003',//	已离港。
+			'InTransit_Arrival'					=>	'3004',//	已到港。
+			'Expired_Other'						=>	'4001',//	其它原因
+			'AvailableForPickup_Other'			=>	'5001',//	其它原因
+			'OutForDelivery_Other'				=>	'6001',//	其它原因
+			'DeliveryFailure_Other'				=>	'7001',//	其它原因。
+			'DeliveryFailure_NoBody'			=>	'7002',//	找不到收件人。
+			'DeliveryFailure_Security'			=>	'7003',//	安全原因。
+			'DeliveryFailure_Rejected'			=>	'7004',//	拒收包裹。
+			'DeliveryFailure_InvalidAddress'	=>	'7005',//	收件地址错误。
+			'Delivered_Other'					=>	'8001',//	其它原因
+			'Exception_Other'					=>	'9001',//	其它原因。
+			'Exception_Returning'				=>	'9002',//	退件处理中。
+			'Exception_Returned'				=>	'9003',//	退件已签收。
+			'Exception_NoBody'					=>	'9004',//	没人签收。
+			'Exception_Security'				=>	'9005',//	安全原因。
+			'Exception_Damage'					=>	'9006',//	货品损坏了。
+			'Exception_Rejected'				=>	'9007',//	被拒收了。
+			'Exception_Delayed'					=>	'9008',//	因各种延迟情况导致的异常。
+			'Exception_Lost'					=>	'9009',//	包裹丢失了。
+			'Exception_Destroyed'				=>	'9010',//	包裹被销毁了。
+			'Exception_Cancel'					=>	'9011',//	物流订单被取消了。			
+		];
+
+		if(isset($track17[$status])){
+			$return['status'] = $track17[$status];
+		}
+		if($sub_status && isset($track17_sub[$sub_status])){
+			$return['sub_status'] = $track17_sub[$sub_status];
+		}
+		return $return;
 	}
 
 	private function verify($message){

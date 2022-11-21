@@ -14,17 +14,17 @@ use royfee\tracking\common\BaseTrack;
  */
 class Track extends BaseTrack{
 	public function __construct($config = []){
-		if($config){
-			$this->config = $config;
-		}
-	}
-
-	/**
-	 * 配置文件
-	 */
-	public function config($config){
 		$this->config = $config;
-		return $this;
+
+		$this->driver = $this->config['default'];
+
+		if(empty($this->driver)){
+			throw new InvalidArgumentException("Driver is empty");
+		}
+
+		if(empty($this->config[$this->driver])){
+			throw new InvalidArgumentException("Configuration [$this->driver] is empty");
+		}
 	}
 
 	/**
@@ -50,11 +50,7 @@ class Track extends BaseTrack{
 	*/
 	public function tracking($trackNumber,array $param = []){
 		//获取对应的运输商
-		$this->driver = array_keys($this->config)[0];
-
-		if(empty($this->config[$this->driver])){
-			throw new InvalidArgumentException("Configuration [$this->driver] is empty");
-		}
+		//$this->driver = array_keys($this->config)[0];
 
 		//调用对应第三方的查询轨迹
 		$result = $this->createGateway($this->driver)->track($trackNumber);
@@ -76,7 +72,7 @@ class Track extends BaseTrack{
 				]);
 			}
 		}
-		
+
 		//合并轨迹记录
 		if($result['ret']){
 			$trackList = array_merge($result['list'],$trackList);
@@ -89,7 +85,7 @@ class Track extends BaseTrack{
 		$trackList = $this->sortNode($trackList,$sort);
 		
 		//状态处理
-		$state = $this->getStatus($trackList,$sort);
+		//$state = $this->getStatus($trackList,$sort);
 
 		//是否对轨迹进行分组
 		if($param['isgroup']??false){
@@ -100,8 +96,12 @@ class Track extends BaseTrack{
 			return [
 				'ret'	=>	true,
 				'list'	=>	$trackList,
-				'status'=>	$state['status'],
-				'recent'=>	$state['recent']
+				'latest'	=>	$result['latest']??[
+					'status'	=>	null,//状态
+					'status_sub'=>	null,//子状态
+					'desc'		=>	null,//最新轨迹
+					'time'		=>	null,//最新时间
+				],
 			];
 		}
 
