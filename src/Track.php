@@ -80,7 +80,7 @@ class Track extends BaseTrack{
 
 		
 		//对轨迹进行按照时间排序
-		$sort = $param['sort'] ??'asc';
+		$sort = $param['sort'] ??'desc';
 
 		$trackList = $this->sortNode($trackList,$sort);
 		
