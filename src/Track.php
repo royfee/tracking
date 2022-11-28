@@ -131,7 +131,7 @@ class Track extends BaseTrack{
 
 		$result = $gateway->notify($jsonBody);
 
-		$sort = $param['sort'] ??'asc';
+		$sort = $param['sort'] ??'desc';
 
 		if($result){
 			//对轨迹进行按照时间排序
@@ -143,8 +143,12 @@ class Track extends BaseTrack{
 			return [
 				'ret'	=>	true,
 				'list'	=>	$result['list'],
-				'status'=>	$state['status'],
-				'recent'=>	$state['recent']
+				'latest'	=>	$result['latest']??[
+					'status'	=>	null,//状态
+					'status_sub'=>	null,//子状态
+					'desc'		=>	null,//最新轨迹
+					'time'		=>	null,//最新时间
+				]
 			];
 		}
 

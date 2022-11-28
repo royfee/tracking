@@ -169,8 +169,11 @@
 			throw new \Exception('Signature error');
 		}
 
+		$trackInfo = $message['data']['track_info'];
+		$latest = $this->status($trackInfo['latest_status']['status'],$trackInfo['latest_status']['sub_status']);
+
 		$list = [];
-		foreach($message['data']['track_info']['tracking']['providers'][0]['events'] as $k => $line){
+		foreach($trackInfo['tracking']['providers'][0]['events'] as $k => $line){
 			$list[] = [
 				'desc'	=>	$line['description'],
 				'loca'	=>	$line['location'],
@@ -178,7 +181,16 @@
 			];
 		}
 
-		return ['ret'=>true,'list'=>$list];
+		return [
+			'ret'	=>	true,
+			'list'	=>	$list,
+			'latest'=>	[
+				'status'	=>	$latest['status'],
+				'status_sub'	=>	$latest['sub_status'],
+				'desc'	=>	$trackInfo['latest_event']['location'].'->'.$trackInfo['latest_event']['description'],
+				'time'	=>	date('Y-m-d H:i:s',strtotime($trackInfo['latest_event']['time_utc'])),
+			]
+		];
 	}
 
 	private function status($status,$sub_status=''){
