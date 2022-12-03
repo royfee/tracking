@@ -95,6 +95,7 @@ class Track extends BaseTrack{
 		if($trackList){
 			return [
 				'ret'	=>	true,
+				'number'=>  $trackNumber,
 				'list'	=>	$trackList,
 				'latest'	=>	$result['latest']??[
 					'status'	=>	null,//状态
@@ -137,21 +138,8 @@ class Track extends BaseTrack{
 			//对轨迹进行按照时间排序
 			$result['list'] = $this->sortNode($result['list'],$sort);
 
-			//状态处理
-			$state = $this->getStatus($result['list'],$sort);
-
-			return [
-				'ret'	=>	true,
-				'list'	=>	$result['list'],
-				'latest'	=>	$result['latest']??[
-					'status'	=>	null,//状态
-					'status_sub'=>	null,//子状态
-					'desc'		=>	null,//最新轨迹
-					'time'		=>	null,//最新时间
-				]
-			];
+			return $result;
 		}
-
 		return ['ret' => false,'msg' =>	$result['msg']];
 	}
 }

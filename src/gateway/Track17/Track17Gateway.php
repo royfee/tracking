@@ -69,7 +69,7 @@
 				'latest'=>	[
 					'status'	=>	$latest['status'],
 					'status_sub'	=>	$latest['sub_status'],
-					'desc'	=>	$trackInfo['latest_event']['location'].'->'.$trackInfo['latest_event']['description'],
+					'desc'	=>	'[ '.$trackInfo['latest_event']['location'].' ] '.$trackInfo['latest_event']['description'],
 					'time'	=>	date('Y-m-d H:i:s',strtotime($trackInfo['latest_event']['time_utc'])),
 				]
 			];	
@@ -184,6 +184,7 @@
 		return [
 			'ret'	=>	true,
 			'list'	=>	$list,
+			'number'=>	$message['data']['number'],
 			'latest'=>	[
 				'status'	=>	$latest['status'],
 				'status_sub'	=>	$latest['sub_status'],
