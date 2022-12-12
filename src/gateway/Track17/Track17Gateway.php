@@ -2,8 +2,9 @@
  namespace royfee\tracking\gateway\track17;
 
  use royfee\tracking\interfaces\TrackInterface;
+ use royfee\tracking\common\BaseGateway;
 
- class Track17Gateway implements TrackInterface{
+ class Track17Gateway extends BaseGateway implements TrackInterface{
 	private $host = 'https://api.17track.net/track/v2/';
 	private $config;
 
@@ -11,10 +12,20 @@
 		$this->config = $config;		
 	}
 
-	public function track($number){
-		$result = $this->post([
-			['number' => $number]
-		]);
+	/**
+	 * 支持多单号查询
+	 */
+	public function track(array $number,$sort = 'desc'){
+		$postArray = array_map(function($val){
+			return ['number' => $val];
+		},$number);
+
+		//追踪轨迹
+		$result = $this->post($postArray);
+
+		if(empty($result)){
+			return ['ret'=>false,'msg'=>'17Track 调用异常'];
+		}
 
 		if(isset($result['data']['errors'])){
 			return [
@@ -25,30 +36,69 @@
 
 		//返回成功
 		if($result['data']['rejected']){
-			//未注册
-			if($result['data']['rejected'][0]['error']['code'] == -18019902){
-				//直接注册
-				$carrier = $this->getCarrier($number);
-				$ret = $this->subscribe([
-					'number' 		=> $number,
-					'carrier'		=> $carrier,//如果只有一个运输商就传这个参数
-					'final_carrier'	=> $carrier,//第二运输商要传这个参数
-					'auto_detection'=> $carrier?false:true,
-				]);
-
-				if(!$ret['ret'])
-					return $ret;
-			}
-			return [
-				'ret'	=> false,
-				'msg'	=> $result['data']['rejected'][0]['error']['message'],
-			];
+			$rejected = $this->handleRejected($result['data']['rejected']);
 		}
 
 		if($result['data']['accepted']){
+			$accepted = $this->handleAccepted($result['data']['accepted'],$sort);
+		}
+		//file_put_contents('17track.tracka.txt',var_export($result,true));
+
+		return [
+			'ret'	=>	true,
+			'data'	=>	array_merge($rejected??[],$accepted??[])
+		];
+	}
+
+	private function handleRejected(array $rejected){
+		//处理错误的
+		$result = [];
+
+		$register = [];
+		foreach($rejected as $line){
+			//未订阅直接订阅
+			if($line['error']['code'] == -18019902){
+				$carrier = $this->getCarrier($line['number']);
+				$register[] = [
+					'number' 		=> $line['number'],
+					'carrier'		=> $carrier,//如果只有一个运输商就传这个参数
+					'final_carrier'	=> $carrier,//第二运输商要传这个参数
+					'auto_detection'=> $carrier?false:true,
+				];
+			}else{
+				$result[] = [
+					'code'	=>	1,
+					'number'=>	$line['number'],
+					'msg'	=>	$line['error']['message'],
+				];	
+			}
+		}
+
+		if($register){
+			$ret = $this->subscribe($register);
+			//file_put_contents('17track.register.txt',var_export($ret,true));
+
+			if($ret['ret']){
+				foreach($ret['data'] as $line){
+					$result[] = [
+						'code'	=>	1,
+						'number'=>	$line['number'],
+						'msg'	=>	'AutoReg:'.$line['msg'],
+					];
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	private function handleAccepted(array $accepted,$sort){
+		$result = [];
+		foreach($accepted as $order){
 			$trackList = [];
 
-			$trackInfo = $result['data']['accepted'][0]['track_info'];
+			$trackInfo = $order['track_info'];
+
 			//获取轨迹列表
 			$trackNode = $trackInfo['tracking']['providers'][0]['events'];
 
@@ -62,23 +112,20 @@
 			}
 
 			$latest = $this->status($trackInfo['latest_status']['status'],$trackInfo['latest_status']['sub_status']);
-
-			return [
-				'ret'	=>	true,
-				'list'	=>	$trackList,
+			
+			$result[] = [
+				'code'	=>	0,
+				'number'=>	$order['number'],
+				'list'	=>	$this->sortNode($trackList,$sort),
 				'latest'=>	[
 					'status'	=>	$latest['status'],
 					'status_sub'	=>	$latest['sub_status'],
 					'desc'	=>	'[ '.$trackInfo['latest_event']['location'].' ] '.$trackInfo['latest_event']['description'],
 					'time'	=>	date('Y-m-d H:i:s',strtotime($trackInfo['latest_event']['time_utc'])),
 				]
-			];	
+			];
 		}
-
-		return [
-			'ret'	=>	false,
-			'msg'	=>	'Track error'
-		];
+		return $result;
 	}
 
 	/*V1版本的
@@ -253,28 +300,45 @@
 	}
 
 	private function subscribe($number){
-		$param = 	is_array($number) ? $number : [
+		$param = 	is_array($number) ? $number : [[
 						'number' 		=> $number,
 						'auto_detection'=> true,
 						'carrier'		=> ''//默认不设置，让17自己去侦测运输商
-					];
+					]];
 
 		//订阅
-		$result = $this->post([$param],'register');
-
-		if($result['data']['accepted']){
+		$result = $this->post($param,'register');
+		
+		$return = [];
+		//file_put_contents('subscribe.txt',var_export($param,true)."\r\n\r\n\r\n".var_export($result,true));
+		
+		if(isset($result['data']['errors'])){
 			return [
-				'ret'	=>	true,
-				'msg'	=>	'Success'
+				'ret'	=>	false,
+				'msg'	=>	$result['data']['errors'][0]['message']
 			];
 		}
 
-		if($result['data']['rejected']){
-			return [
-				'ret'	=>	false,
-				'msg'	=>	$result['data']['rejected'][0]['error']['message']
-			];			
+		foreach($result['data']['accepted'] as $line){
+			$return[] = [
+				'code'	=>	0,
+				'number'=>	$line['number'],
+				'carrier'=>	$line['carrier']
+			];
 		}
+		
+		foreach($result['data']['rejected'] as $line){
+			$return[] = [
+				'code'	=>	1,
+				'number'=>	$line['number'],
+				'msg'	=>	$line['error']['message']
+			];
+		}
+
+		return [
+			'ret'	=>	true,
+			'data'	=>	$return
+		];
 	}
 
 	//修改运输商

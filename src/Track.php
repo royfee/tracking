@@ -29,92 +29,20 @@ class Track extends BaseTrack{
 
 	/**
 		追踪物流轨迹信息
-		@para[
-			'original': boolean 原生返回，返回格式如return，默认进行格式处理
-			'default_list':array 默认加进去的物流轨迹，加入自定义物流轨迹，默认返回为真
-			'sort':轨迹排序方式 A 升序  D 降序 默认 D 降序
-			'isgroup':物流轨迹分组 默认 false
-		]
-
-		@return [
-			'ret'	=>	true,
-			'list'	=>	[
-				[
-					"desc" => "已完成处理，准备离开",
-					"loca" => "香港",
-					"time" => "2020-10-17 16:48:00",
-				]
-			'recent' => '已签收',
-			'status' => 4,
-		]
+		@number  string|array 追踪单号
+		@return array(
+			ret	false|true
+			data []
+		)
 	*/
-	public function tracking($trackNumber,array $param = []){
-		//获取对应的运输商
-		//$this->driver = array_keys($this->config)[0];
-
+	public function tracking($number,array $param = []){
 		//调用对应第三方的查询轨迹
-		$result = $this->createGateway($this->driver)->track($trackNumber);
+		$trackArr = is_array($number)?$number:explode(',',$number);
 
-		if($param['original']??false){
-			return $result;
-		}
-
-		$trackList = [];
-		if(isset($param['default_list'])){
-			$trackList = array_merge($param['default_list'],$trackList);
-			if($result['ret'] === false){
-				$trackList = array_merge($trackList,[
-					[
-						'desc'	=>	$result['msg'],
-						'loca'	=>	'',
-						'time'	=>	date('Y-m-d H:i:s'),
-					]
-				]);
-			}
-		}
-
-		//合并轨迹记录
-		if($result['ret']){
-			$trackList = array_merge($result['list'],$trackList);
-		}
-
+		$result = $this->createGateway($this->driver)->track($trackArr);
 		
-		//对轨迹进行按照时间排序
-		$sort = $param['sort'] ??'desc';
-
-		$trackList = $this->sortNode($trackList,$sort);
-		
-		//状态处理
-		//$state = $this->getStatus($trackList,$sort);
-
-		//是否对轨迹进行分组
-		if($param['isgroup']??false){
-			$trackList = $this->nodeGroup($trackList);
-		}
-		
-		if($trackList){
-			return [
-				'ret'	=>	true,
-				'number'=>  $trackNumber,
-				'list'	=>	$trackList,
-				'latest'	=>	$result['latest']??[
-					'status'	=>	null,//状态
-					'status_sub'=>	null,//子状态
-					'desc'		=>	null,//最新轨迹
-					'time'		=>	null,//最新时间
-				],
-			];
-		}
-
-		//轨迹为空的时候
-		if($result['ret']){
-			return $result;
-		}
-
-		return [
-			'ret'	=>	 false,
-			'msg'	=>	 $result['msg'],
-		];
+		//file_put_contents('tracking.txt',var_export($result,true));
+		return $result;
 	}
 
 	/**

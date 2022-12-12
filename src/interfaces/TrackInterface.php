@@ -14,5 +14,5 @@ interface TrackInterface{
 		 list	=>	
 	 * ]
 	 */
-	public function track($number);
+	public function track(array $number,$sort = 'desc');
 }
