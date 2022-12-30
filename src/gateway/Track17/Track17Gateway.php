@@ -107,7 +107,7 @@
 				$trackList[] = [
 					'desc'	=>	$node['description'],
 					'loca'	=>	$node['location'],
-					'time'	=>	date('Y-m-d H:i:s',strtotime($node['time_utc'])),
+					'time'	=>	trim(str_replace(['T','Z'],' ',$node['time_utc'])),
 				];
 			}
 
@@ -373,6 +373,9 @@
 			]
 		]);
 		$response = curl_exec($curl);
+
+		//file_put_contents('17track.tracka.txt',$json."\r\n\r\n".var_export($response,true));
+
 		curl_close($curl);
 		return json_decode($response,true);
 	}
