@@ -15,7 +15,7 @@
 	/**
 	 * 支持多单号查询
 	 */
-	public function track(array $number,$sort = 'desc'){
+	public function track(array $number,$sort = 'desc',$group = false){
 		$postArray = array_map(function($val){
 			return ['number' => $val];
 		},$number);
@@ -113,6 +113,11 @@
 
 			$latest = $this->status($trackInfo['latest_status']['status'],$trackInfo['latest_status']['sub_status']);
 			
+			$trackList = $this->sortNode($trackList,$sort);
+			if($group){
+				$trackList = $this->nodeGroup($trackList);
+			}
+
 			$result[] = [
 				'code'	=>	0,
 				'number'=>	$order['number'],

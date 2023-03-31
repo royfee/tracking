@@ -13,6 +13,7 @@ interface TrackInterface{
 		 latest =>	[],
 		 list	=>	
 	 * ]
+	 * group 是否分组
 	 */
-	public function track(array $number,$sort = 'desc');
+	public function track(array $number,$sort = 'desc',$group = false);
 }

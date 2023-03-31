@@ -30,16 +30,14 @@ class Track extends BaseTrack{
 	/**
 		追踪物流轨迹信息
 		@number  string|array 追踪单号
-		@return array(
-			ret	false|true
-			data []
-		)
+		@sort string 排序顺序
+		@group 轨迹是否分组	
 	*/
-	public function tracking($number,array $param = []){
+	public function tracking($number,$sort = 'desc',$group = false){
 		//调用对应第三方的查询轨迹
 		$trackArr = is_array($number)?$number:explode(',',$number);
 
-		$result = $this->createGateway($this->driver)->track($trackArr);
+		$result = $this->createGateway($this->driver)->track($trackArr,$sort,$group);
 		
 		//file_put_contents('tracking.txt',var_export($result,true));
 		return $result;
