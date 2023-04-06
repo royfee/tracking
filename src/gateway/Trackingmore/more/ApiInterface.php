@@ -1,6 +1,4 @@
 <?php
-
-
 namespace royfee\tracking\gateway\trackingmore\more;
 
 interface ApiInterface

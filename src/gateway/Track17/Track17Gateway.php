@@ -110,8 +110,6 @@
 					'time'	=>	trim(str_replace(['T','Z'],' ',$node['time_utc'])),
 				];
 			}
-
-			$latest = $this->status($trackInfo['latest_status']['status'],$trackInfo['latest_status']['sub_status']);
 			
 			$trackList = $this->sortNode($trackList,$sort);
 			if($group){
@@ -122,12 +120,13 @@
 				'code'	=>	0,
 				'number'=>	$order['number'],
 				'list'	=>	$this->sortNode($trackList,$sort),
-				'latest'=>	[
-					'status'	=>	$latest['status'],
-					'status_sub'	=>	$latest['sub_status'],
-					'desc'	=>	'[ '.$trackInfo['latest_event']['location'].' ] '.$trackInfo['latest_event']['description'],
-					'time'	=>	date('Y-m-d H:i:s',strtotime($trackInfo['latest_event']['time_utc'])),
-				]
+				'latest'=>	array_merge(
+					$this->status($trackInfo['latest_status']['status'],$trackInfo['latest_status']['sub_status']),
+					[
+						'desc'	=>	'[ '.$trackInfo['latest_event']['location'].' ] '.$trackInfo['latest_event']['description'],
+						'time'	=>	date('Y-m-d H:i:s',strtotime($trackInfo['latest_event']['time_utc'])),
+					]
+				)
 			];
 		}
 		return $result;
@@ -296,6 +295,9 @@
 		if($sub_status && isset($track17_sub[$sub_status])){
 			$return['sub_status'] = $track17_sub[$sub_status];
 		}
+
+		//状态描述
+		$return['status_desc'] = \royfee\tracking\support\Status::getDesc($return['status'],$return['sub_status']);
 		return $return;
 	}
 

@@ -15,7 +15,7 @@ class Status{
         90  =>  '可能异常',//可能异常，包裹可能被退回，原因请参看子状态。原因可能是：收件人地址错误或不详、收件人拒收、包裹无人认领超过保留期等。包裹可能被海关扣留，常见扣关原因是：包含敏感违禁、限制进出口的物品、未交税款等。包裹可能在运输途中遭受损坏、丢失、延误投递等特殊情况。
     ];
 
-    var $state_sub = [
+    static $state_sub = [
         10 => [
             1001    =>  '运输商没有返回信息',//运输商没有返回信息NotFound_Othe
             1002    =>  '物流单号无效',//物流单号无效，无法进行查询。NotFound_InvalidCode
@@ -79,21 +79,19 @@ class Status{
         ]
     ];
 
+    public static function getDesc($status,$sub_status){
+        $arr = [];
+        if(isset(self::$state[$status])){
+            $arr[] = self::$state[$status];
+
+            if(isset(self::$state_sub[$status][$sub_status])){
+                $arr[] = self::$state_sub[$status][$sub_status];
+            }
+        }
+        return $arr?implode(' | ',$arr):'';
+    }
+
     public static function getStatus(){
         return self::$state;
     }
-    /*
-    if($this->in_string($desc,array('已收件','已揽件','揽收人','已收寄','收寄人'))){
-        return 1;
-    }
-    else if($this->in_string($desc,array('派件','派送','安排投递'))){
-        return 2;
-    }
-    else if($this->in_string($desc,array('自提点','驿站','待取'))){
-        return 3;
-    }
-    else if($this->in_string($desc,array('已签收','已投妥','投妥','代签','成功派递','签收人','代签收','已取走邮件','邮件已取走'))){
-        return 4;
-    }
-    */
 }

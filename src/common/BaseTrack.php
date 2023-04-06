@@ -16,7 +16,7 @@ abstract class BaseTrack{
     protected $config;
 
     protected function createGateway($gateway){
-        $gateway = 'royfee\\tracking\\gateway\\' . ucfirst($gateway) . '\\' . ucfirst($gateway) . 'Gateway';
+        $gateway = 'royfee\\tracking\\gateway\\' . $gateway . '\\' . ucfirst($gateway) . 'Gateway';
         return $this->build($gateway);
     }
 

@@ -13,6 +13,8 @@ use royfee\tracking\common\BaseTrack;
  * @package addons\epay\library
  */
 class Track extends BaseTrack{
+	private $gateway = null;
+
 	public function __construct($config = []){
 		$this->config = $config;
 
@@ -25,6 +27,8 @@ class Track extends BaseTrack{
 		if(empty($this->config[$this->driver])){
 			throw new InvalidArgumentException("Configuration [$this->driver] is empty");
 		}
+
+		$this->gateway = $this->createGateway($this->driver);
 	}
 
 	/**
@@ -37,7 +41,11 @@ class Track extends BaseTrack{
 		//调用对应第三方的查询轨迹
 		$trackArr = is_array($number)?$number:explode(',',$number);
 
-		$result = $this->createGateway($this->driver)->track($trackArr,$sort,$group);
+		if(empty($trackArr)){
+			return ['ret'=>false,'msg'=>'number empty'];
+		}
+
+		$result = $this->gateway->track($trackArr,$sort,$group);
 		
 		//file_put_contents('tracking.txt',var_export($result,true));
 		return $result;
@@ -67,5 +75,16 @@ class Track extends BaseTrack{
 			return $result;
 		}
 		return ['ret' => false,'msg' =>	$result['msg']];
+	}
+
+	/**
+	 * 对轨迹进行排序
+	 */
+	public function sortNode($nodelist,$by = 'desc'){
+		return $this->gateway->sortNode($nodelist,$by);
+	}
+
+	public function nodeGroup($nodelist){
+		return $this->gateway->nodeGroup($nodelist);
 	}
 }

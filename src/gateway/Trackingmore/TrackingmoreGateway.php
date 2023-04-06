@@ -13,6 +13,7 @@
 	}
 
  	public function track(array $number,$sort = 'desc',$group = false){
+
 		//调用查询
 		$response = $this->call('get',[
 			'tracking_numbers' => implode(',',$number)
@@ -26,7 +27,7 @@
 		if($response['code'] === 204){
 			$this->create($number);
 		}
-
+		
 		$result = [];
 		if($response['code'] === 200){
 			foreach($response['data'] as $order){
@@ -41,8 +42,6 @@
 					];
 				}
 
-				$latest = $this->status($order['delivery_status'],$order['substatus']);
-				
 				$trackList = $this->sortNode($trackList,$sort);
 
 				if($group){
@@ -53,12 +52,13 @@
 					'code'	=>	0,
 					'number'=>	$order['tracking_number'],
 					'list'	=>	$trackList,
-					'latest'=>	[
-						'status'	=>	$latest['status'],
-						'status_sub'	=>	$latest['sub_status'],
-						'desc'	=>	$order['latest_event']??'',
-						'time'	=>	str_replace('T',' ',substr($order['lastest_checkpoint_time'],0,19))
-					]
+					'latest'=>	array_merge(
+						$this->status($order['delivery_status'],$order['substatus']),
+						[
+							'desc'	=>	$order['latest_event']??'',
+							'time'	=>	str_replace('T',' ',substr($order['lastest_checkpoint_time'],0,19))
+						]
+					)					
 				];	
 			}
 
@@ -70,7 +70,7 @@
 		
 		return [
 			'ret'	=>	false,
-			'list'	=>	$response['message']
+			'msg'	=>	$response['message']
 		];
 	}
 
@@ -93,6 +93,9 @@
 			case 'BE':
 			case '11':
 				return 'china-post';
+			case 'MY':
+			case 'KK':
+				return 'gdex';
 			default:
 				return '';
 		}
@@ -108,6 +111,7 @@
 		$total = 0;
 		foreach($trackArray as $track){
 			$carrier = $this->getCarrier($track);
+
 			$createArray[] = [
 				'tracking_number' => $track,
 				'courier_code'    => $carrier,
@@ -115,9 +119,9 @@
 			];
 			$total++;
 		}
-
+		
 		$response = $this->call('create',$createArray);
-
+		
 		if($response['code'] === 200){
 			return [
 				'ret'	=>	true,
@@ -182,6 +186,9 @@
 		if($sub_status && isset($track51_sub[$sub_status])){
 			$return['sub_status'] = $track51_sub[$sub_status];
 		}
+
+		//状态描述
+		$return['status_desc'] = \royfee\tracking\support\Status::getDesc($return['status'],$return['sub_status']);
 		return $return;
 	}
  }

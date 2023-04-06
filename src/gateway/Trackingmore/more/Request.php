@@ -1,5 +1,4 @@
 <?php
-
 namespace royfee\tracking\gateway\trackingmore\more;
 
 trait Request

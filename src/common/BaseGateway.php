@@ -9,7 +9,7 @@ abstract class BaseGateway{
 	 * 轨迹节点排序
 	 * nodelist 轨迹节点
 	 */
-	protected function sortNode($nodelist,$by = 'asc'){
+	public function sortNode($nodelist,$by = 'desc'){
 		$sortFlag = array_map(function($arr){
 			return $arr['time'];
 		},$nodelist);
@@ -43,7 +43,7 @@ abstract class BaseGateway{
 	/**
 	 * 
 	 */
-	protected function nodeGroup($tracklist){
+	public function nodeGroup($tracklist){
 		$groupNode = [];
 		foreach($tracklist as $k => $line){
 			switch($this->nodeStatus($line['desc'])){
