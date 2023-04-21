@@ -1,8 +1,7 @@
 <?php
 namespace royfee\tracking\support;
 
-class Config implements \ArrayAccess
-{
+class Config implements \ArrayAccess{
     /**
      * @var array
      */
@@ -63,24 +62,7 @@ class Config implements \ArrayAccess
         if ($key == '') {
             throw new InvalidArgumentException('Invalid config key.');
         }
-
-        // 只支持三维数组，多余无意义
-        $keys = explode('.', $key);
-        switch (count($keys)) {
-            case '1':
-                $this->config[$key] = $value;
-                break;
-            case '2':
-                $this->config[$keys[0]][$keys[1]] = $value;
-                break;
-            case '3':
-                $this->config[$keys[0]][$keys[1]][$keys[2]] = $value;
-                break;
-
-            default:
-                throw new InvalidArgumentException('Invalid config key.');
-        }
-
+        $this->config[$key] = $value;
         return $this->config;
     }
 }

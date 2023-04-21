@@ -29,6 +29,9 @@ class Track extends BaseTrack{
 		}
 
 		$this->gateway = $this->createGateway($this->driver);
+
+		//是否支持采集查询
+		$this->config['isCollect'] = $this->config['isCollect']??false;
 	}
 
 	/**
@@ -45,10 +48,36 @@ class Track extends BaseTrack{
 			return ['ret'=>false,'msg'=>'number empty'];
 		}
 
-		$result = $this->gateway->track($trackArr,$sort,$group);
-		
+		//采集追踪
+		$trackList = [];
+
+		if($this->config['isCollect']){
+			$collectResult = (new \royfee\tracking\gateway\Collect)->tracking($trackArr);
+			$trackArr = $collectResult['untrack'];
+
+			$trackList = array_merge($trackList,$collectResult['tracked']);
+		}
+
+		if($trackArr){
+			$channelResult = $this->gateway->track($trackArr,$sort,$group);
+			if($channelResult['ret']){
+				$trackList = array_merge($trackList,$channelResult['data']);
+			}
+		}
+
+		if($trackList){
+			return [
+				'ret'	=>	true,
+				'data'	=>	$trackList
+			];	
+		}else{
+			return [
+				'ret'	=>	false,
+				'msg'	=>	$channelResult??$channelResult['msg']
+			];	
+		}
 		//file_put_contents('tracking.txt',var_export($result,true));
-		return $result;
+		//return $result;
 	}
 
 	/**
