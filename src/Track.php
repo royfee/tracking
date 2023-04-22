@@ -73,11 +73,9 @@ class Track extends BaseTrack{
 		}else{
 			return [
 				'ret'	=>	false,
-				'msg'	=>	$channelResult??$channelResult['msg']
+				'msg'	=>	isset($channelResult) && isset($channelResult['msg'])?$channelResult['msg']:'Error'
 			];	
 		}
-		//file_put_contents('tracking.txt',var_export($result,true));
-		//return $result;
 	}
 
 	/**
