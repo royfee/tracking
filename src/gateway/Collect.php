@@ -8,6 +8,7 @@ class Collect{
     protected $allow = [
         'MY'  =>    'MCollection',
         'KK'  =>    'MCollection',
+        'SG'  =>    'MCollection',
     ];
 
     public function tracking(array $trackList){

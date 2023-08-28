@@ -85,6 +85,8 @@
 				return 'china-post';
 			case '55':
 				return 'sto';
+			case '73':
+				return 'zto';	
 			case '77':
 				return 'yunda';
 			case '99':
