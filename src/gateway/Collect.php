@@ -9,6 +9,7 @@ class Collect{
         'MY'  =>    'MCollection',
         'KK'  =>    'MCollection',
         'SG'  =>    'MCollection',
+        'PC'  =>    'MCollection',
     ];
 
     public function tracking(array $trackList){
