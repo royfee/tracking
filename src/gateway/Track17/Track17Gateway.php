@@ -40,7 +40,7 @@
 		}
 
 		if($result['data']['accepted']){
-			$accepted = $this->handleAccepted($result['data']['accepted'],$sort);
+			$accepted = $this->handleAccepted($result['data']['accepted'],$sort,$group);
 		}
 		//file_put_contents('17track.tracka.txt',var_export($result,true));
 
@@ -92,7 +92,7 @@
 		return $result;
 	}
 
-	private function handleAccepted(array $accepted,$sort){
+	private function handleAccepted(array $accepted,$sort,$group){
 		$result = [];
 		foreach($accepted as $order){
 			$trackList = [];
