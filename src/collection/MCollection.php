@@ -10,7 +10,7 @@ use royfee\tracking\common\BaseGateway;
 class MCollection extends BaseGateway { // implements TrackInterface
     private $url = 'http://47.52.146.142/podtrack/Details.aspx?ID=';
 
-	public function track(String $number){
+	public function track(String $number,String $no){
 		$result = $this->fetch($number);
 
 		if($result === false){

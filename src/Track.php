@@ -57,7 +57,7 @@ class Track extends BaseTrack{
 
 			$trackList = array_merge($trackList,$collectResult['tracked']);
 		}
-
+		
 		if($trackArr){
 			$channelResult = $this->gateway->track($trackArr,$sort,$group);
 			if($channelResult['ret']){

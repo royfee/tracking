@@ -10,6 +10,7 @@ class Collect{
         'KK'  =>    'MCollection',
         'SG'  =>    'MCollection',
         'PC'  =>    'MCollection',
+        '89'  =>    'BCollection',
     ];
 
     public function tracking(array $trackList){
@@ -18,10 +19,11 @@ class Collect{
             $pre = substr($number,0,2);
             if(isset($this->allow[$pre])){
                 $collectGateway = '\royfee\tracking\collection\\'.$this->allow[$pre];
+
                 $clt = new $collectGateway;
 
                 //采集
-                $result = $clt->track($number);
+                $result = $clt->track($number,$key);
                 if($result === false){
                     $return['untrack'][] = $number;
                 }else{

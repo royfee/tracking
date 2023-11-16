@@ -89,6 +89,8 @@
 				return 'zto';	
 			case '77':
 				return 'yunda';
+			case '31':
+				return 'yunda56';
 			case '99':
 			case '97':
 			case 'BH':
