@@ -96,6 +96,7 @@
 			case 'BH':
 			case 'BE':
 			case '11':
+			case '84':
 				return 'china-post';
 			case 'MY':
 			case 'KK':
